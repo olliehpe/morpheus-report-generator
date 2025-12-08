@@ -39,6 +39,11 @@ async function loadTemplateFiles() {
 }
 
 async function generatePreview() {
+    // Validate before proceeding
+    if (!validateForm()) {
+        return;
+    }
+    
     const formData = getFormData();
     
     // Ensure templates are loaded
@@ -54,6 +59,11 @@ async function generatePreview() {
 }
 
 async function generateAndDownload() {
+    // Validate before proceeding
+    if (!validateForm()) {
+        return;
+    }
+    
     const formData = getFormData();
     
     // Ensure templates are loaded
@@ -392,6 +402,10 @@ function updateFieldSelection() {
         window.parsedFields = fields;
         
     } catch (error) {
+        // Show toast for wildcard error
+        if (error.message.includes('Wildcard (*) selectors are not supported')) {
+            showToast('Wildcard (*) selectors are not supported. Please specify individual field names.');
+        }
         fieldsContainer.innerHTML = `<p style="color: #d63384;">${error.message}</p>`;
     }
 }
@@ -641,6 +655,78 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Toast notification functions
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.add('show');
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        hideToast();
+    }, 5000);
+}
+
+// Check for wildcard character on keyup
+function checkForWildcard(event) {
+    const query = event.target.value;
+    if (query.includes('*')) {
+        showToast('Wildcard (*) selectors are not supported. Please specify individual field names.');
+    }
+}
+
+function hideToast() {
+    const toast = document.getElementById('toast');
+    toast.classList.remove('show');
+}
+
+// Validation function
+function validateForm() {
+    // Check required fields
+    const reportName = document.getElementById('reportName').value.trim();
+    const reportDescription = document.getElementById('reportDescription').value.trim();
+    const reportCategory = document.getElementById('reportCategory').value.trim();
+    
+    if (!reportName) {
+        showToast('Please enter a Report Name.');
+        return false;
+    }
+    
+    if (!reportDescription) {
+        showToast('Please enter a Report Description.');
+        return false;
+    }
+    
+    if (!reportCategory) {
+        showToast('Please select a Report Category.');
+        return false;
+    }
+    
+    const sqlQuery = document.getElementById('sqlQuery').value.trim();
+    
+    // Check if SQL query contains wildcard
+    if (sqlQuery.includes('*')) {
+        showToast('Wildcard (*) selectors are not supported. Please specify individual field names.');
+        return false;
+    }
+    
+    // Check if SQL query is valid (basic check for SELECT and FROM)
+    const cleanQuery = sqlQuery.replace(/\s+/g, ' ').toLowerCase();
+    if (!cleanQuery.includes('select') || !cleanQuery.includes('from')) {
+        showToast('Please enter a valid SQL SELECT query with FROM clause.');
+        return false;
+    }
+    
+    // Check if at least one field is selected
+    const selectedFields = getSelectedFieldsWithAliases();
+    if (selectedFields.length === 0) {
+        showToast('Please select at least one field from the Report Fields section.');
+        return false;
+    }
+    
+    return true;
 }
 
 // Load templates when page loads
