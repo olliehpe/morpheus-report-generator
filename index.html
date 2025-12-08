@@ -164,7 +164,7 @@
             <div class="form-group">
                 <label for="namespace">Namespace:</label>
                 <input type="text" id="namespace" name="namespace" value="com.morpheusreportgenerator.reports" placeholder="com.morpheusreportgenerator.reports" required>
-                <div class="help-text">Java package namespace for your plugin classes (use reverse domain notation)</div>
+                <div class="help-text">Java package namespace for your plugin classes (use reverse domain notation, for example, `com.{yourcompany}`)</div>
             </div>
             
             <div class="form-group">
@@ -241,10 +241,11 @@
             </div>
             
             <div class="button-group">
-                <button type="button" class="btn-generate" onclick="generatePreview()">Generate</button>
-                <button type="button" class="btn-download" onclick="generateAndDownload()">Generate and Download</button>
+                <button type="button" class="btn-generate" onclick="generatePreview()">Generate & Preview</button>
+                <button type="button" class="btn-download" onclick="generateAndDownload()">Generate & Download</button>
             </div>
         </form>
+
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
