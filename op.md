@@ -16,8 +16,8 @@ import java.sql.Connection
 import io.reactivex.rxjava3.core.Observable
 
 class {{REPORT_CLASS_NAME}} extends AbstractReportProvider {
-	protected MorpheusContext morpheusContext
-	protected Plugin plugin
+protected MorpheusContext morpheusContext
+protected Plugin plugin
 
 	{{REPORT_CLASS_NAME}}(Plugin plugin, MorpheusContext morpheusContext) {
 		this.morpheusContext = morpheusContext
@@ -101,15 +101,6 @@ class {{REPORT_CLASS_NAME}} extends AbstractReportProvider {
 	}
 
 	/**
-	 * Returns if this report supports all zone types
-	 * @return Boolean
-	 */
-	@Override
-	Boolean getSupportsAllZoneTypes() {
-		return true
-	}
-
-	/**
 	 * Returns an array of option types to configure the report
 	 * @return List<OptionType>
 	 */
@@ -129,96 +120,91 @@ class {{REPORT_CLASS_NAME}} extends AbstractReportProvider {
 	}
 
 	/**
-	 * Processes the report data and saves the result
-	 * @param reportResult the report result object to process
+	 * Processes the report and returns a ReportResult
+	 * @param reportType the reportType this report belongs to
+	 * @param opts any provided options
+	 * @param buildHtml flag to include HTML generation
+	 * @return ServiceResponse<ReportResult>
 	 */
 	@Override
 	void process(ReportResult reportResult) {
+
 		log.debug("Processing {{REPORT_NAME}} report...")
-		
-		// Update report status to generating
-		morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.generating).blockingAwait()
-		
-		Long displayOrder = 0
-		List<GroovyRowResult> repResults = []
-		
-		Connection dbConnection
-		try {
-			// Get database connection
-			dbConnection = morpheus.report.getReadOnlyDatabaseConnection().blockingGet()
-			
-			if (dbConnection == null) {
-				log.error("Failed to obtain database connection")
-				morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.failed).blockingAwait()
-				return
-			}
 
-			// Execute the SQL query
-			String sql = """{{SQL_QUERY}}"""
-			log.debug("Executing SQL: ${sql}")
-			
-			Sql sqlInstance = new Sql(dbConnection)
-			repResults = sqlInstance.rows(sql)
-			
-			log.debug("Query returned ${repResults.size()} rows")
-			
-		} catch (Exception e) {
-			log.error("Error executing SQL query: ${e.message}", e)
-			morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.failed).blockingAwait()
-			return
-		} finally {
-			// Always release the database connection
-			if (dbConnection) {
-				morpheus.report.releaseDatabaseConnection(dbConnection)
-			}
-		}
-
+		Long
+		
 		try {
-			// Process results using Observable pattern
-			Observable<GroovyRowResult> observable = Observable.fromIterable(repResults)
-			observable.map { resultRow ->
-				log.debug("Processing row: ${resultRow}")
+			Connection dbConnection
+
+			try {
+				dbConnection = morpheus.report.getReadOnlyDatabaseConnection().blockingGet()
 				
-				def Map<String, Object> data = [:]
-				resultRow.each { key, value ->
-					data[key.toString()] = value
+				if (dbConnection == null) {
+					log.error("Failed to obtain database connection")
+					return ServiceResponse.error("Failed to obtain database connection")
+				}
+
+				String sql = """{{SQL_QUERY}}"""
+
+				log.debug("Executing SQL: ${sql}")
+				
+				Sql sqlInstance = new Sql(dbConnection)
+				List<GroovyRowResult> results = sqlInstance.rows(sql)
+				
+				log.debug("Query returned ${results.size()} rows")
+				
+				List<Map<String, Object>> reportData = []
+				List<Map<String, Object>> headerData = []
+				
+				// Process results
+				for (GroovyRowResult row : results) {
+					Map<String, Object> data = [:]
+					row.each { key, value ->
+						data[key.toString()] = value
+					}
+					reportData << [dataMap: data]
 				}
 				
-				ReportResultRow resultRowRecord = new ReportResultRow(
-					section: ReportResultRow.SECTION_MAIN,
-					displayOrder: displayOrder++,
-					dataMap: data
-				)
-				return resultRowRecord
-			}.buffer(50).doOnComplete {
-				// Mark report as ready when complete
+				// TODO: Add summary statistics calculation here if needed
+				// headerData << [dataMap: [totalRecords: results.size()]]
+				
+				ReportResult reportResult = new ReportResult()
+				reportResult.data = reportData
+				reportResult.headers = headerData
+				
+				if (buildHtml) {
+					reportResult = generateReportHTML(reportResult, reportType, opts)
+				}
+				
 				log.debug("Report processing completed successfully")
-				morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.ready).blockingAwait()
-			}.doOnError { Throwable t ->
-				// Mark report as failed on error
-				log.error("Error processing report data: ${t.message}", t)
-				morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.failed).blockingAwait()
-			}.subscribe { resultRows ->
-				// Append results to the report
-				morpheus.report.appendResultRows(reportResult, resultRows).blockingGet()
+				return ServiceResponse.success(reportResult)
+				
+			} finally {
+				morpheus.report.releaseDatabaseConnection(dbConnection)
 			}
 			
 		} catch (Exception e) {
 			log.error("Error processing {{REPORT_NAME}} report: ${e.message}", e)
-			morpheus.report.updateReportResultStatus(reportResult, ReportResult.Status.failed).blockingAwait()
+			return ServiceResponse.error("Error processing report: ${e.message}")
 		}
 	}
 
 	/**
-	 * Generates HTML content for the report using Handlebars template
+	 * Generates HTML content for the report
 	 * @param reportResult the report data
-	 * @param reportRowsBySection the data organized by section
-	 * @return HTMLResponse with rendered content
+	 * @param reportType the report type
+	 * @param opts report options
+	 * @return ReportResult with HTML content
 	 */
-	@Override
-	HTMLResponse renderTemplate(ReportResult reportResult, Map<String, List<ReportResultRow>> reportRowsBySection) {
-		ViewModel<String> model = new ViewModel<String>()
-		model.object = reportRowsBySection
-		getRenderer().renderTemplate("hbs/{{REPORT_TEMPLATE}}", model)
+	private ReportResult generateReportHTML(ReportResult reportResult, com.morpheusdata.model.ReportType reportType, Map<String, Object> opts) {
+		ViewModel<String> model = new ViewModel<>()
+		model.object = reportResult.data
+		HTMLResponse output = getRenderer().renderTemplate("hbs/{{REPORT_TEMPLATE}}", model)
+		
+		reportResult.htmlContent = output.html
+		reportResult.data = reportResult.data
+		reportResult.headers = reportResult.headers
+		
+		return reportResult
 	}
 }
