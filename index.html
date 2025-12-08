@@ -170,12 +170,16 @@
             <div class="form-group">
                 <label for="reportCategory">Report Category:</label>
                 <select id="reportCategory" name="reportCategory" required>
-                    <option value="inventory">Inventory</option>
-                    <option value="user">User</option>
-                    <option value="provisioning">Provisioning</option>
+                    <option value="">Select</option>
+                    <option value="accountInventory">Account Inventory</option>
+                    <option value="cloudUsage">Cloud Usage</option>
+                    <option value="cost">Cloud Cost</option>
+                    <option value="infrastructureInventory">Infrastructure Inventory</option>
+                    <option value="provisioningInventory">Provisioning Inventory</option>
                     <option value="security">Security</option>
-                    <option value="analytics">Analytics</option>
                     <option value="billing">Billing</option>
+                    <option value="analytics">Analytics</option>
+                    <option value="users">User</option>
                     <option value="custom">Custom</option>
                 </select>
                 <div class="help-text">Choose the category that best fits your report type for organization in Morpheus</div>
