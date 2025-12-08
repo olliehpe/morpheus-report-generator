@@ -127,8 +127,11 @@ class {{REPORT_CLASS_NAME}} extends AbstractReportProvider {
 	 * @return ServiceResponse<ReportResult>
 	 */
 	@Override
-	ServiceResponse<ReportResult> process(com.morpheusdata.model.ReportType reportType, Map<String, Object> opts, Boolean buildHtml = true) {
+	void process(ReportResult reportResult) {
+
 		log.debug("Processing {{REPORT_NAME}} report...")
+
+		Long
 		
 		try {
 			Connection dbConnection

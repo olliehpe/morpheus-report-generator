@@ -87,8 +87,11 @@ function getFormData() {
     // Get selected fields and updated aliases
     const selectedFields = getSelectedFieldsWithAliases();
     
+    // Clean report name by removing single quotes and apostrophes
+    const cleanReportName = document.getElementById('reportName').value.replace(/[']/g, '');
+    
     return {
-        reportName: document.getElementById('reportName').value,
+        reportName: cleanReportName,
         reportDescription: document.getElementById('reportDescription').value,
         namespace: document.getElementById('namespace').value,
         reportCategory: document.getElementById('reportCategory').value,
