@@ -234,7 +234,7 @@
             
             <div class="form-group">
                 <label for="sqlQuery">SQL Query:</label>
-                <textarea id="sqlQuery" name="sqlQuery" placeholder="SELECT field1, field2, field3 FROM table_name WHERE conditions..." required oninput="updateFieldSelection()" onkeyup="checkForWildcard(event)"></textarea>
+                <textarea id="sqlQuery" name="sqlQuery" placeholder="SELECT field1, field2, field3 FROM table_name WHERE conditions..." required oninput="updateFieldSelection()" onkeyup="checkForWildcard(event)" onblur="validateSQLTables(this.value)"></textarea>
             </div>
 
             <div class="form-group">

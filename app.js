@@ -17,6 +17,10 @@ const templateFiles = [
 // Cache for loaded template content
 let templateCache = {};
 
+// Cache for Morpheus schema
+let morpheusSchema = null;
+let schemaLoading = false;
+
 // Load all template files
 async function loadTemplateFiles() {
     const promises = templateFiles.map(async (filename) => {
@@ -44,6 +48,168 @@ async function loadTemplateFiles() {
     });
     
     await Promise.all(promises);
+}
+
+// Asynchronously load Morpheus schema
+async function loadMorpheusSchema() {
+    if (morpheusSchema || schemaLoading) {
+        return morpheusSchema;
+    }
+    
+    schemaLoading = true;
+    try {
+        console.log('Loading Morpheus schema...');
+        const response = await fetch('data/morpheus_schema.json');
+        if (response.ok) {
+            morpheusSchema = await response.json();
+            console.log(`Morpheus schema loaded: ${Object.keys(morpheusSchema).length} tables available`);
+        } else {
+            console.warn('Failed to load Morpheus schema');
+            morpheusSchema = {};
+        }
+    } catch (error) {
+        console.warn('Error loading Morpheus schema:', error);
+        morpheusSchema = {};
+    } finally {
+        schemaLoading = false;
+    }
+    
+    return morpheusSchema;
+}
+
+// Get schema data (loads if not already loaded)
+async function getSchemaData() {
+    if (!morpheusSchema) {
+        await loadMorpheusSchema();
+    }
+    return morpheusSchema;
+}
+
+// Check if a table exists in the schema
+function isValidTable(tableName) {
+    return morpheusSchema && morpheusSchema.hasOwnProperty(tableName);
+}
+
+// Check if a column exists in a specific table
+function isValidColumn(tableName, columnName) {
+    return isValidTable(tableName) && morpheusSchema[tableName].includes(columnName);
+}
+
+// Get all columns for a table
+function getTableColumns(tableName) {
+    return isValidTable(tableName) ? morpheusSchema[tableName] : [];
+}
+
+// Extract table names from SQL query
+function extractTableNames(sqlQuery) {
+    if (!sqlQuery || !sqlQuery.trim()) {
+        console.log('Empty SQL query provided');
+        return [];
+    }
+    
+    try {
+        // Clean up the query and normalize whitespace
+        const cleanQuery = sqlQuery.replace(/\s+/g, ' ').trim().toUpperCase();
+        console.log('Extracting tables from SQL:', cleanQuery);
+        
+        const tableNames = new Set();
+        
+        // Simplified approach - find FROM and JOIN keywords
+        const words = cleanQuery.split(/\s+/);
+        
+        for (let i = 0; i < words.length - 1; i++) {
+            const word = words[i];
+            
+            // Look for FROM keyword
+            if (word === 'FROM') {
+                const nextWord = words[i + 1];
+                if (nextWord && !isKeyword(nextWord)) {
+                    const tableName = cleanTableName(nextWord);
+                    if (tableName) {
+                        tableNames.add(tableName.toLowerCase());
+                        console.log('Found FROM table:', tableName.toLowerCase());
+                    }
+                }
+            }
+            
+            // Look for JOIN keyword
+            if (word === 'JOIN' || word.endsWith('JOIN')) {
+                const nextWord = words[i + 1];
+                if (nextWord && !isKeyword(nextWord)) {
+                    const tableName = cleanTableName(nextWord);
+                    if (tableName) {
+                        tableNames.add(tableName.toLowerCase());
+                        console.log('Found JOIN table:', tableName.toLowerCase());
+                    }
+                }
+            }
+        }
+        
+        const result = Array.from(tableNames);
+        console.log('Final extracted table names:', result);
+        return result;
+    } catch (error) {
+        console.warn('Error extracting table names:', error);
+        return [];
+    }
+}
+
+// Helper function to check if a word is a SQL keyword
+function isKeyword(word) {
+    const keywords = [
+        'SELECT', 'FROM', 'WHERE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'FULL', 'CROSS',
+        'ON', 'AND', 'OR', 'NOT', 'IN', 'EXISTS', 'BETWEEN', 'LIKE', 'IS', 'NULL',
+        'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'OFFSET', 'UNION', 'DISTINCT', 'ALL',
+        'AS', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END'
+    ];
+    return keywords.includes(word.toUpperCase());
+}
+
+// Helper function to clean table names
+function cleanTableName(tableName) {
+    if (!tableName) return null;
+    
+    // Remove quotes and backticks
+    let cleaned = tableName.replace(/["`']/g, '');
+    
+    // Handle schema.table format
+    if (cleaned.includes('.')) {
+        cleaned = cleaned.split('.').pop();
+    }
+    
+    // Remove any trailing punctuation
+    cleaned = cleaned.replace(/[,;()]/g, '');
+    
+    return cleaned.trim() || null;
+}
+
+
+// Validate tables in SQL query against schema
+async function validateSQLTables(sqlQuery) {
+    // Ensure schema is loaded
+    await getSchemaData();
+    
+    if (!morpheusSchema || Object.keys(morpheusSchema).length === 0) {
+        console.warn('Schema not available for validation');
+        return;
+    }
+    
+    const tableNames = extractTableNames(sqlQuery);
+    const invalidTables = [];
+    
+    for (const tableName of tableNames) {
+        if (!isValidTable(tableName)) {
+            invalidTables.push(tableName);
+        }
+    }
+    
+    if (invalidTables.length > 0) {
+        const tableList = invalidTables.join(', ');
+        const message = invalidTables.length === 1 
+            ? `Table '${tableList}' does not exist in the Morpheus database schema.`
+            : `Tables '${tableList}' do not exist in the Morpheus database schema.`;
+        showToast(message);
+    }
 }
 
 async function generatePreview() {
@@ -742,11 +908,19 @@ function validateForm() {
     return true;
 }
 
-// Load templates when page loads
+// Load templates and schema when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Load templates (required for functionality)
     loadTemplateFiles().then(() => {
         console.log('Templates loaded successfully');
     }).catch(error => {
         console.error('Failed to load templates:', error);
+    });
+    
+    // Load Morpheus schema asynchronously (for future validation)
+    loadMorpheusSchema().then(() => {
+        console.log('Schema loaded in background for validation');
+    }).catch(error => {
+        console.warn('Schema loading failed (validation features may be limited):', error);
     });
 });
