@@ -14,7 +14,9 @@ import groovy.sql.GroovyRowResult
 import groovy.sql.Sql
 import java.sql.Connection
 import io.reactivex.rxjava3.core.Observable
+import groovy.util.logging.Slf4j
 
+@Slf4j
 class {{REPORT_CLASS_NAME}} extends AbstractReportProvider {
 	protected MorpheusContext morpheusContext
 	protected Plugin plugin

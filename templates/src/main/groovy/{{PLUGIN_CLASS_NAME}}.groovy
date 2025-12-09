@@ -16,7 +16,6 @@
 package {{NAMESPACE}}
 
 import com.morpheusdata.core.Plugin
-import com.morpheusdata.model.Permission
 
 class {{PLUGIN_CLASS_NAME}} extends Plugin {
 
