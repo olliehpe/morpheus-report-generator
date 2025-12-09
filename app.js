@@ -184,24 +184,31 @@ function cleanTableName(tableName) {
 }
 
 
-// Validate tables in SQL query against schema
+// Validate tables in SQL query against schema and update sidebar
 async function validateSQLTables(sqlQuery) {
     // Ensure schema is loaded
     await getSchemaData();
     
     if (!morpheusSchema || Object.keys(morpheusSchema).length === 0) {
         console.warn('Schema not available for validation');
+        updateSidebar([]);
         return;
     }
     
     const tableNames = extractTableNames(sqlQuery);
     const invalidTables = [];
+    const validTables = [];
     
     for (const tableName of tableNames) {
         if (!isValidTable(tableName)) {
             invalidTables.push(tableName);
+        } else {
+            validTables.push(tableName);
         }
     }
+    
+    // Update sidebar with valid tables
+    updateSidebar(validTables);
     
     if (invalidTables.length > 0) {
         const tableList = invalidTables.join(', ');
@@ -908,6 +915,225 @@ function validateForm() {
     return true;
 }
 
+// Sidebar functionality
+function toggleSidebar() {
+    const sidebar = document.getElementById('columnsSidebar');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const mainContent = document.getElementById('mainContent');
+    
+    const isOpen = sidebar.classList.contains('open');
+    
+    if (isOpen) {
+        // Close sidebar (compress)
+        sidebar.classList.remove('open');
+        toggleBtn.classList.remove('active');
+        toggleBtn.innerHTML = '◀';
+        toggleBtn.title = 'Expand Database Schema';
+        mainContent.classList.remove('sidebar-open');
+    } else {
+        // Open sidebar (expand)
+        sidebar.classList.add('open');
+        toggleBtn.classList.add('active');
+        toggleBtn.innerHTML = '▶';
+        toggleBtn.title = 'Compress Database Schema';
+        mainContent.classList.add('sidebar-open');
+    }
+}
+
+function updateSidebar(validTables) {
+    const tablesContainer = document.getElementById('tablesContainer');
+    const sidebarStatus = document.getElementById('sidebarStatus');
+    
+    if (!validTables || validTables.length === 0) {
+        tablesContainer.innerHTML = `
+            <div class="no-tables-message">
+                <p>No valid tables found in your SQL query.</p>
+                <p>Enter a SELECT query with FROM clause to see available columns.</p>
+            </div>
+        `;
+        sidebarStatus.textContent = 'Enter SQL query to see available tables';
+        return;
+    }
+    
+    // Update status
+    const tableCount = validTables.length;
+    const totalColumns = validTables.reduce((sum, tableName) => {
+        return sum + getTableColumns(tableName).length;
+    }, 0);
+    
+    sidebarStatus.textContent = `Found ${tableCount} table${tableCount !== 1 ? 's' : ''} with ${totalColumns} available columns`;
+    
+    // Generate HTML for each table
+    let html = '';
+    
+    for (const tableName of validTables) {
+        const columns = getTableColumns(tableName);
+        
+        html += `
+            <div class="table-section">
+                <div class="table-header">
+                    ${tableName} (${columns.length} columns)
+                </div>
+                <div class="columns-list">
+        `;
+        
+        for (const column of columns) {
+            html += `
+                <div class="column-item" 
+                     draggable="true" 
+                     onclick="insertColumnReference('${tableName}.${column}')" 
+                     title="Drag to SQL query or click to copy '${tableName}.${column}'"
+                     ondragstart="handleColumnDragStart(event, '${tableName}.${column}')"
+                     ondragend="handleColumnDragEnd(event)">
+                    ${column}
+                </div>
+            `;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    tablesContainer.innerHTML = html;
+}
+
+function insertColumnReference(columnRef) {
+    // Copy to clipboard
+    navigator.clipboard.writeText(columnRef).then(() => {
+        // Show brief feedback
+        showToast(`Copied "${columnRef}" to clipboard`);
+    }).catch(() => {
+        // Fallback for older browsers
+        showToast(`Column reference: ${columnRef}`);
+    });
+}
+
+// Drag and drop functionality
+function handleColumnDragStart(event, columnRef) {
+    // Store the column reference in the drag event
+    event.dataTransfer.setData('text/plain', columnRef);
+    
+    // Add visual feedback
+    event.target.classList.add('dragging');
+    
+    console.log('Drag started for column:', columnRef);
+}
+
+function handleColumnDragEnd(event) {
+    // Remove visual feedback
+    event.target.classList.remove('dragging');
+}
+
+function setupTextareaDragAndDrop() {
+    const sqlTextarea = document.getElementById('sqlQuery');
+    
+    if (!sqlTextarea) {
+        console.warn('SQL textarea not found');
+        return;
+    }
+    
+    // Prevent default drag behavior
+    sqlTextarea.addEventListener('dragover', function(event) {
+        event.preventDefault();
+        event.target.classList.add('drag-over');
+    });
+    
+    sqlTextarea.addEventListener('dragleave', function(event) {
+        event.target.classList.remove('drag-over');
+    });
+    
+    sqlTextarea.addEventListener('drop', function(event) {
+        event.preventDefault();
+        event.target.classList.remove('drag-over');
+        
+        // Get the column reference from drag data
+        const columnRef = event.dataTransfer.getData('text/plain');
+        
+        if (columnRef) {
+            // Insert at cursor position or append
+            insertTextAtCursor(event.target, columnRef);
+            
+            // Trigger field selection update if needed
+            updateFieldSelection();
+            
+            // Show feedback
+            showToast(`Added "${columnRef}" to SQL query`);
+        }
+    });
+}
+
+function insertTextAtCursor(textarea, columnRef) {
+    // Remove table prefix from column reference (e.g., "users.email" -> "email")
+    const columnName = columnRef.includes('.') ? columnRef.split('.').pop() : columnRef;
+    
+    const sqlQuery = textarea.value;
+    
+    // Find the position right before the FROM clause
+    const fromMatch = sqlQuery.match(/\s+FROM\s+/i);
+    
+    if (fromMatch) {
+        const fromIndex = fromMatch.index;
+        const beforeFrom = sqlQuery.substring(0, fromIndex);
+        const fromAndAfter = sqlQuery.substring(fromIndex);
+        
+        // Check if there are already fields selected (look for SELECT)
+        const selectMatch = beforeFrom.match(/SELECT\s+/i);
+        
+        if (selectMatch) {
+            // Determine if we need to add a comma
+            const fieldsSection = beforeFrom.substring(selectMatch.index + selectMatch[0].length);
+            const needsComma = fieldsSection.trim().length > 0 && !fieldsSection.trim().endsWith(',');
+            
+            // Insert the column name before FROM
+            const prefix = needsComma ? ', ' : '';
+            textarea.value = beforeFrom + prefix + columnName + fromAndAfter;
+            
+            // Position cursor after the inserted column
+            const newCursorPos = beforeFrom.length + prefix.length + columnName.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+        } else {
+            // No SELECT found, insert at cursor position as fallback
+            insertAtCurrentCursor(textarea, columnName);
+        }
+    } else {
+        // No FROM clause found, insert at cursor position as fallback
+        insertAtCurrentCursor(textarea, columnName);
+    }
+    
+    // Focus the textarea
+    textarea.focus();
+}
+
+function insertAtCurrentCursor(textarea, text) {
+    const startPos = textarea.selectionStart;
+    const endPos = textarea.selectionEnd;
+    const textBefore = textarea.value.substring(0, startPos);
+    const textAfter = textarea.value.substring(endPos, textarea.value.length);
+    
+    // Add appropriate spacing
+    let prefix = '';
+    let suffix = '';
+    
+    // If there's text before and it doesn't end with space or comma, add a space
+    if (textBefore && !textBefore.match(/[\s,]$/)) {
+        prefix = ' ';
+    }
+    
+    // If there's text after and it doesn't start with space or comma, add a space
+    if (textAfter && !textAfter.match(/^[\s,]/)) {
+        suffix = ' ';
+    }
+    
+    // Insert the text
+    textarea.value = textBefore + prefix + text + suffix + textAfter;
+    
+    // Set cursor position after inserted text
+    const newCursorPos = startPos + prefix.length + text.length + suffix.length;
+    textarea.setSelectionRange(newCursorPos, newCursorPos);
+}
+
 // Load templates and schema when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load templates (required for functionality)
@@ -923,4 +1149,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }).catch(error => {
         console.warn('Schema loading failed (validation features may be limited):', error);
     });
+    
+    // Setup drag and drop functionality for SQL textarea
+    setupTextareaDragAndDrop();
 });
