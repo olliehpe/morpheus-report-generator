@@ -184,6 +184,113 @@ function cleanTableName(tableName) {
 }
 
 
+// Validate for ambiguous column references
+function validateColumnAmbiguity(sqlQuery, validTables) {
+    if (!sqlQuery || !validTables.length) {
+        return [];
+    }
+    
+    try {
+        // Extract columns from SELECT clause
+        const fieldsString = extractTopLevelSelectFields(sqlQuery);
+        if (!fieldsString) return [];
+        
+        const ambiguousColumns = [];
+        const columnReferences = fieldsString.split(',').map(field => {
+            const trimmed = field.trim();
+            // Remove aliases and get just the column reference
+            const columnMatch = trimmed.match(/^([^\\s]+)/);
+            return columnMatch ? columnMatch[1] : null;
+        }).filter(col => col && !col.includes('.') && !col.includes('(')); // Skip prefixed columns and functions
+        
+        for (const columnRef of columnReferences) {
+            const tablesWithColumn = [];
+            
+            // Check which tables contain this column
+            for (const tableName of validTables) {
+                const columns = getTableColumns(tableName);
+                if (columns.includes(columnRef)) {
+                    tablesWithColumn.push(tableName);
+                }
+            }
+            
+            // If column exists in multiple tables, it's ambiguous
+            if (tablesWithColumn.length > 1) {
+                ambiguousColumns.push({
+                    column: columnRef,
+                    tables: tablesWithColumn
+                });
+            }
+        }
+        
+        return ambiguousColumns;
+    } catch (error) {
+        console.warn('Error validating column ambiguity:', error);
+        return [];
+    }
+}
+
+// Validate for date/time columns that need special handling
+function validateDateColumns(sqlQuery, validTables) {
+    if (!sqlQuery || !validTables.length) {
+        return [];
+    }
+    
+    try {
+        // Extract columns from SELECT clause
+        const fieldsString = extractTopLevelSelectFields(sqlQuery);
+        if (!fieldsString) return [];
+        
+        const dateColumns = [];
+        const dateColumnPatterns = [
+            /date/i,
+            /time/i,
+            /created/i,
+            /updated/i,
+            /modified/i,
+            /timestamp/i
+        ];
+        
+        const columnReferences = fieldsString.split(',').map(field => {
+            const trimmed = field.trim();
+            // Remove aliases and get just the column reference
+            const columnMatch = trimmed.match(/^([^\\s]+)/);
+            return columnMatch ? columnMatch[1] : null;
+        }).filter(col => col && !col.includes('(')); // Skip functions (already converted)
+        
+        for (const columnRef of columnReferences) {
+            const cleanColumn = columnRef.includes('.') ? columnRef.split('.').pop() : columnRef;
+            
+            // Check if column name suggests it's a date/time field
+            const isDateColumn = dateColumnPatterns.some(pattern => pattern.test(cleanColumn));
+            
+            if (isDateColumn) {
+                // Verify this column exists in the schema and isn't already wrapped in a function
+                let foundInTable = false;
+                for (const tableName of validTables) {
+                    const columns = getTableColumns(tableName);
+                    if (columns.includes(cleanColumn)) {
+                        foundInTable = true;
+                        break;
+                    }
+                }
+                
+                if (foundInTable) {
+                    dateColumns.push({
+                        column: columnRef,
+                        suggestion: `DATE_FORMAT(${columnRef}, '%Y-%m-%d %H:%i:%s') as ${cleanColumn}`
+                    });
+                }
+            }
+        }
+        
+        return dateColumns;
+    } catch (error) {
+        console.warn('Error validating date columns:', error);
+        return [];
+    }
+}
+
 // Validate tables in SQL query against schema and update sidebar
 async function validateSQLTables(sqlQuery) {
     // Ensure schema is loaded
@@ -207,14 +314,29 @@ async function validateSQLTables(sqlQuery) {
         }
     }
     
+    // Check for ambiguous column references and date columns
+    const ambiguousColumns = validateColumnAmbiguity(sqlQuery, validTables);
+    const dateColumns = validateDateColumns(sqlQuery, validTables);
+    
     // Update sidebar with valid tables
     updateSidebar(validTables);
     
+    // Show validation messages (prioritize by severity)
     if (invalidTables.length > 0) {
         const tableList = invalidTables.join(', ');
         const message = invalidTables.length === 1 
             ? `Table '${tableList}' does not exist in the Morpheus database schema.`
             : `Tables '${tableList}' do not exist in the Morpheus database schema.`;
+        showToast(message);
+    } else if (dateColumns.length > 0) {
+        const columnList = dateColumns.map(col => `'${col.column}'`).join(', ');
+        const message = `Date/Time columns detected: ${columnList}. These need to be converted to strings using DATE_FORMAT() or CAST() to avoid serialization errors in Morpheus reports.`;
+        showToast(message);
+    } else if (ambiguousColumns.length > 0) {
+        const columnList = ambiguousColumns.map(col => `'${col.column}'`).join(', ');
+        const message = ambiguousColumns.length === 1
+            ? `Column ${columnList} exists in multiple tables. Please specify the table prefix (e.g., ${ambiguousColumns[0].tables[0]}.${ambiguousColumns[0].column}).`
+            : `Columns ${columnList} exist in multiple tables. Please specify table prefixes to avoid ambiguity.`;
         showToast(message);
     }
 }
