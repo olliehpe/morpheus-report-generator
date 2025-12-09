@@ -10,7 +10,8 @@ const templateFiles = [
     'src/main/groovy/{{PLUGIN_CLASS_NAME}}.groovy',
     'src/main/groovy/{{REPORT_CLASS_NAME}}.groovy',
     'src/main/resources/renderer/hbs/{{REPORT_TEMPLATE}}.hbs',
-    'src/assets/images/morpheus.svg'
+    'src/assets/images/morpheus.svg',
+    'plugin/'
 ];
 
 // Cache for loaded template content
@@ -20,6 +21,13 @@ let templateCache = {};
 async function loadTemplateFiles() {
     const promises = templateFiles.map(async (filename) => {
         try {
+            // Handle directories differently
+            if (filename.endsWith('/')) {
+                // For directories, we just mark them as empty string content
+                templateCache[filename] = '';
+                return;
+            }
+            
             const response = await fetch(`templates/${filename}`);
             if (response.ok) {
                 const content = filename.endsWith('.jar') || filename.endsWith('.svg') ? 
@@ -77,7 +85,12 @@ async function generateAndDownload() {
     
     // Add each processed template file to the ZIP
     for (const [filename, content] of Object.entries(processedFiles)) {
-        zip.file(filename, content);
+        if (filename.endsWith('/')) {
+            // Create empty directory
+            zip.folder(filename.slice(0, -1));
+        } else {
+            zip.file(filename, content);
+        }
     }
     
     
