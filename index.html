@@ -66,8 +66,8 @@
             border-radius: 4px;
             cursor: pointer;
             transition: background-color 0.3s;
-            padding-top:20px;
-            padding-bottom:20px;
+            padding-top:20px!Important;
+            padding-bottom:20px!Important;
         }
         .btn-generate {
             background-color: #007bff;
@@ -300,6 +300,138 @@
             padding: 40px 20px;
             font-size: 14px;
         }
+        
+        /* Load Settings Button */
+        .load-settings-container {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .btn-load-settings {
+            background-color: #ffc107;
+            color: #212529;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto;
+            display: block;
+        }
+        .btn-load-settings:hover {
+            background-color: #e0a800;
+        }
+        
+        /* Save Button */
+        .btn-save {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-save:hover {
+            background-color: #e0a800;
+        }
+        
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 2000;
+        }
+        .modal-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        .modal-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .modal-title {
+            margin: 0;
+            color: #333;
+            font-size: 20px;
+        }
+        .close-button {
+            float: right;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            margin-left: 15px;
+        }
+        .close-button:hover {
+            color: #333;
+        }
+        .config-list {
+            margin-bottom: 20px;
+        }
+        .config-item {
+            padding: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .config-item:hover {
+            background-color: #f8f9fa;
+            border-color: #007bff;
+        }
+        .config-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .config-details {
+            font-size: 12px;
+            color: #666;
+        }
+        .modal-buttons {
+            text-align: right;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+        .btn-modal {
+            padding: 8px 16px;
+            margin-left: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-primary {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-primary:hover {
+            background-color: #e0a800;
+        }
+        .btn-secondary {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-secondary:hover {
+            background-color: #e0a800;
+        }
     </style>
 </head>
 <body>
@@ -326,6 +458,11 @@
         <div class="container">
         <h1>Morpheus Report Generator</h1>
             <h3>Create report plugins for Morpheus using a 'nocode' approach</h3>
+            
+            <!-- Load Settings Button (initially hidden) -->
+            <div class="load-settings-container" id="loadSettingsContainer" style="display: none;">
+                <button type="button" class="btn-load-settings" onclick="openLoadModal()">Load Saved Report Settings</button>
+            </div>
         <form id="reportForm">
             <div class="form-group">
                 <label for="reportName">Report Name:</label>
@@ -421,6 +558,7 @@
             <div class="button-group">
                 <button type="button" class="btn-generate" onclick="generatePreview()">Generate & Preview</button>
                 <button type="button" class="btn-download" onclick="generateAndDownload()">Generate & Download</button>
+                <button type="button" class="btn-save" onclick="saveConfiguration()">Save Configuration</button>
             </div>
         </form>
         </div>
@@ -429,6 +567,22 @@
 
     <!-- Toast notification -->
     <div id="toast" class="toast"></div>
+    
+    <!-- Load Configuration Modal -->
+    <div id="loadModal" class="modal-overlay" onclick="closeLoadModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <button class="close-button" onclick="closeLoadModal()">&times;</button>
+                <h2 class="modal-title">Load Saved Configuration</h2>
+            </div>
+            <div id="configList" class="config-list">
+                <!-- Configurations will be populated here -->
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal btn-secondary" onclick="closeLoadModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
 <div style="text-align:center;margin-top:30px;">
     <a href="https://github.com/olliehpe/morpheus-report-generator/issues"><img alt="GitHub Issues" src="https://img.shields.io/github/issues/olliehpe/morpheus-report-generator"></a>
     <a href="https://github.com/olliehpe/morpheus-report-generator"><img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/olliehpe/morpheus-report-generator"></a>

@@ -1268,6 +1268,297 @@ function insertAtCurrentCursor(textarea, text) {
     textarea.setSelectionRange(newCursorPos, newCursorPos);
 }
 
+// Configuration management constants
+const CONFIG_PREFIX = 'morpheus-report-config-';
+
+// Save current configuration to localStorage
+function saveConfiguration() {
+    try {
+        // Validate that we have required fields
+        const reportName = document.getElementById('reportName').value.trim();
+        const pluginVersion = document.getElementById('pluginVersion').value.trim();
+        
+        if (!reportName) {
+            showToast('Please enter a Report Name before saving.');
+            return;
+        }
+        
+        if (!pluginVersion) {
+            showToast('Please enter a Plugin Version before saving.');
+            return;
+        }
+        
+        // Generate storage key
+        const storageKey = CONFIG_PREFIX + generateStorageKey(reportName, pluginVersion);
+        
+        // Gather all form data
+        const configData = {
+            // Basic form fields
+            reportName: reportName,
+            reportDescription: document.getElementById('reportDescription').value,
+            namespace: document.getElementById('namespace').value,
+            reportCategory: document.getElementById('reportCategory').value,
+            pluginVersion: pluginVersion,
+            sdkVersion: document.getElementById('sdkVersion').value,
+            sqlQuery: document.getElementById('sqlQuery').value,
+            pluginAuthor: document.getElementById('pluginAuthor').value,
+            pluginOrganization: document.getElementById('pluginOrganization').value,
+            pluginRepository: document.getElementById('pluginRepository').value,
+            
+            // Report fields state
+            reportFields: window.parsedFields ? window.parsedFields.map(field => ({
+                original: field.original,
+                fieldName: field.fieldName,
+                dataKey: field.dataKey,
+                displayAlias: field.displayAlias,
+                selected: field.selected
+            })) : [],
+            
+            // Current field selections and aliases from UI
+            currentFieldSelections: getCurrentFieldSelections(),
+            
+            // Metadata
+            savedAt: new Date().toISOString(),
+            savedAtFormatted: new Date().toLocaleString()
+        };
+        
+        // Save to localStorage
+        localStorage.setItem(storageKey, JSON.stringify(configData));
+        
+        // Show success message
+        showToast(`Configuration "${reportName}" v${pluginVersion} saved successfully!`, 'success');
+        
+        // Update load button visibility
+        updateLoadButtonVisibility();
+        
+    } catch (error) {
+        console.error('Error saving configuration:', error);
+        showToast('Failed to save configuration. Please try again.');
+    }
+}
+
+// Generate storage key from report name and version
+function generateStorageKey(reportName, version) {
+    return (reportName + '-' + version)
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+}
+
+// Get current field selections and aliases from the UI
+function getCurrentFieldSelections() {
+    const selections = [];
+    
+    if (window.parsedFields) {
+        window.parsedFields.forEach((field, index) => {
+            const checkbox = document.getElementById(`field_${index}`);
+            const aliasInput = document.getElementById(`alias_${index}`);
+            
+            selections.push({
+                index: index,
+                selected: checkbox ? checkbox.checked : field.selected,
+                displayAlias: aliasInput ? aliasInput.value : field.displayAlias
+            });
+        });
+    }
+    
+    return selections;
+}
+
+// Check for saved configurations and show/hide load button
+function updateLoadButtonVisibility() {
+    const savedConfigs = getSavedConfigurations();
+    const loadContainer = document.getElementById('loadSettingsContainer');
+    
+    if (savedConfigs.length > 0) {
+        loadContainer.style.display = 'block';
+    } else {
+        loadContainer.style.display = 'none';
+    }
+}
+
+// Get all saved configurations from localStorage
+function getSavedConfigurations() {
+    const configs = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(CONFIG_PREFIX)) {
+            try {
+                const configData = JSON.parse(localStorage.getItem(key));
+                configs.push({
+                    key: key,
+                    ...configData
+                });
+            } catch (error) {
+                console.warn(`Failed to parse saved configuration: ${key}`, error);
+            }
+        }
+    }
+    
+    // Sort by save date (newest first)
+    configs.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+    
+    return configs;
+}
+
+// Open the load configuration modal
+function openLoadModal() {
+    const modal = document.getElementById('loadModal');
+    const configList = document.getElementById('configList');
+    
+    const savedConfigs = getSavedConfigurations();
+    
+    if (savedConfigs.length === 0) {
+        configList.innerHTML = '<p style="text-align: center; color: #666; font-style: italic;">No saved configurations found.</p>';
+    } else {
+        let html = '';
+        savedConfigs.forEach(config => {
+            html += `
+                <div class="config-item" onclick="loadConfiguration('${config.key}')">
+                    <div class="config-name">${config.reportName} v${config.pluginVersion}</div>
+                    <div class="config-details">
+                        <div>Description: ${config.reportDescription || 'No description'}</div>
+                        <div>Category: ${config.reportCategory || 'Not specified'}</div>
+                        <div>Saved: ${config.savedAtFormatted}</div>
+                        <div>Fields: ${config.reportFields ? config.reportFields.length : 0} configured</div>
+                    </div>
+                </div>
+            `;
+        });
+        configList.innerHTML = html;
+    }
+    
+    modal.style.display = 'block';
+}
+
+// Close the load configuration modal
+function closeLoadModal(event) {
+    const modal = document.getElementById('loadModal');
+    
+    // Only close if clicking the overlay or close button
+    if (!event || event.target === modal || event.target.classList.contains('close-button')) {
+        modal.style.display = 'none';
+    }
+}
+
+// Load a specific configuration
+function loadConfiguration(configKey) {
+    try {
+        const configData = JSON.parse(localStorage.getItem(configKey));
+        
+        if (!configData) {
+            showToast('Configuration not found.');
+            return;
+        }
+        
+        // Load basic form fields
+        document.getElementById('reportName').value = configData.reportName || '';
+        document.getElementById('reportDescription').value = configData.reportDescription || '';
+        document.getElementById('namespace').value = configData.namespace || 'com.morpheusreportgenerator.reports';
+        document.getElementById('reportCategory').value = configData.reportCategory || '';
+        document.getElementById('pluginVersion').value = configData.pluginVersion || '1.0.0';
+        document.getElementById('sdkVersion').value = configData.sdkVersion || '1.2.7';
+        document.getElementById('sqlQuery').value = configData.sqlQuery || '';
+        document.getElementById('pluginAuthor').value = configData.pluginAuthor || '';
+        document.getElementById('pluginOrganization').value = configData.pluginOrganization || '';
+        document.getElementById('pluginRepository').value = configData.pluginRepository || '';
+        
+        // Restore report fields state
+        if (configData.reportFields && configData.reportFields.length > 0) {
+            // Set the global parsed fields
+            window.parsedFields = configData.reportFields.map(field => ({
+                original: field.original,
+                fieldName: field.fieldName,
+                dataKey: field.dataKey,
+                displayAlias: field.displayAlias,
+                selected: field.selected
+            }));
+            
+            // Regenerate the fields UI
+            renderFieldsFromSavedState(configData.reportFields, configData.currentFieldSelections);
+        } else {
+            // Clear fields if none saved
+            const fieldsContainer = document.getElementById('fieldsContainer');
+            fieldsContainer.innerHTML = '<p style="color: #666; font-style: italic;">Enter a valid SQL SELECT query to see available fields</p>';
+            window.parsedFields = null;
+        }
+        
+        // Close the modal
+        closeLoadModal();
+        
+        // Show success message
+        showToast(`Configuration "${configData.reportName}" loaded successfully!`, 'success');
+        
+        // Validate SQL tables if query exists
+        if (configData.sqlQuery) {
+            validateSQLTables(configData.sqlQuery);
+        }
+        
+    } catch (error) {
+        console.error('Error loading configuration:', error);
+        showToast('Failed to load configuration. Please try again.');
+    }
+}
+
+// Render fields UI from saved state
+function renderFieldsFromSavedState(savedFields, currentSelections) {
+    const fieldsContainer = document.getElementById('fieldsContainer');
+    
+    if (!savedFields || savedFields.length === 0) {
+        fieldsContainer.innerHTML = '<p style="color: #666; font-style: italic;">Enter a valid SQL SELECT query to see available fields</p>';
+        return;
+    }
+    
+    let html = '<div class="fields-grid">';
+    
+    savedFields.forEach((field, index) => {
+        // Check if we have current selection data for this field
+        const currentSelection = currentSelections ? 
+            currentSelections.find(sel => sel.index === index) : null;
+        
+        const isSelected = currentSelection ? currentSelection.selected : field.selected;
+        const displayAlias = currentSelection ? currentSelection.displayAlias : field.displayAlias;
+        
+        html += `
+            <div class="field-item">
+                <div class="field-checkbox">
+                    <input type="checkbox" id="field_${index}" ${isSelected ? 'checked' : ''} onchange="toggleField(${index})">
+                    <label for="field_${index}">${field.dataKey}</label>
+                </div>
+                <div class="field-alias">
+                    <label for="alias_${index}">Display Name:</label>
+                    <input type="text" id="alias_${index}" value="${displayAlias}" placeholder="Display name for column">
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    fieldsContainer.innerHTML = html;
+}
+
+// Enhanced toast function with success styling
+function showToast(message, type = 'error') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    
+    // Set styling based on type
+    if (type === 'success') {
+        toast.style.backgroundColor = '#28a745';
+    } else {
+        toast.style.backgroundColor = '#dc3545';
+    }
+    
+    toast.classList.add('show');
+    
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+        hideToast();
+    }, 4000);
+}
+
 // Load templates and schema when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load templates (required for functionality)
@@ -1286,4 +1577,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Setup drag and drop functionality for SQL textarea
     setupTextareaDragAndDrop();
+    
+    // Check for saved configurations and update load button visibility
+    updateLoadButtonVisibility();
 });
