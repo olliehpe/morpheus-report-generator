@@ -11,7 +11,8 @@ const templateFiles = [
     'src/main/groovy/{{REPORT_CLASS_NAME}}.groovy',
     'src/main/resources/renderer/hbs/{{REPORT_TEMPLATE}}.hbs',
     'src/assets/images/morpheus.svg',
-    'plugin/'
+    'plugin/',
+    'LICENSE'
 ];
 
 // Cache for loaded template content
@@ -831,7 +832,8 @@ function generatePreviewHTML(files) {
         'build.gradle',
         'Makefile',
         'gradle.properties',
-        'plugin/'
+        'plugin/',
+        'LICENSE'
     ];
     
     let html = `
@@ -924,6 +926,7 @@ function generatePreviewHTML(files) {
                 <li>gradlew.bat</li>
                 <li>src/assets/images/morpheus.svg</li>
                 <li>plugin/</li>
+                <li>LICENSE</li>
             </ul>
         </div>
     `;
