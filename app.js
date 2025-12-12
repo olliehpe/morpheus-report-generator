@@ -12,7 +12,8 @@ const templateFiles = [
     'src/main/resources/renderer/hbs/{{REPORT_TEMPLATE}}.hbs',
     'src/assets/images/morpheus.svg',
     'plugin/',
-    'LICENSE'
+    'LICENSE',
+    'REAMDME.md'
 ];
 
 // Cache for loaded template content
@@ -504,6 +505,11 @@ function processTemplates(formData) {
         // Adjust file path for namespace
         if (processedFilename.includes('src/main/groovy/')) {
             processedFilename = processedFilename.replace('src/main/groovy/', `src/main/groovy/${namespacePath}/`);
+        }
+        
+        // Rename REAMDME.md to README.md in the processed filename
+        if (processedFilename === 'REAMDME.md') {
+            processedFilename = 'README.md';
         }
         
         processed[processedFilename] = processedContent;
