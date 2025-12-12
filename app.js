@@ -830,7 +830,8 @@ function generatePreviewHTML(files) {
         'gradlew',
         'build.gradle',
         'Makefile',
-        'gradle.properties'
+        'gradle.properties',
+        'plugin/'
     ];
     
     let html = `
@@ -911,8 +912,8 @@ function generatePreviewHTML(files) {
         <h1>Generated Morpheus Plugin Files</h1>
         
         <div class="excluded-files">
-            <h3>Additional Files Included in Download</h3>
-            <p style="color: #666; margin: 5px 0 10px 0;">The following files are included in the ZIP download but excluded from this preview:</p>
+            <h3>Additional assets included in Download</h3>
+            <p style="color: #666; margin: 5px 0 10px 0;">The following files & folders are included in the ZIP download but excluded from this preview:</p>
             <ul>
                 <li>build.gradle</li>
                 <li>gradle.properties</li>
@@ -922,12 +923,14 @@ function generatePreviewHTML(files) {
                 <li>gradlew</li>
                 <li>gradlew.bat</li>
                 <li>src/assets/images/morpheus.svg</li>
+                <li>plugin/</li>
             </ul>
         </div>
     `;
     
     // Filter out excluded files for preview
     const filteredFiles = Object.entries(files).filter(([filename, content]) => {
+        //console.log(files)
         return !excludeFromPreview.some(excludePattern => filename.includes(excludePattern));
     });
     
