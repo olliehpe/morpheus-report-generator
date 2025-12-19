@@ -1559,6 +1559,29 @@ function showToast(message, type = 'error') {
     }, 4000);
 }
 
+// Handle schema validation toggle change
+function handleSchemaValidationToggle() {
+    const toggle = document.getElementById('schemaValidation');
+    const sqlQuery = document.getElementById('sqlQuery').value;
+    
+    if (toggle.checked && sqlQuery.trim()) {
+        // If validation is turned on and there's a query, validate it
+        validateSQLTables(sqlQuery);
+    } else if (!toggle.checked) {
+        // If validation is turned off, clear the sidebar
+        updateSidebar([]);
+    }
+}
+
+// Handle SQL query blur event with toggle check
+function handleSQLQueryBlur(sqlQuery) {
+    const toggle = document.getElementById('schemaValidation');
+    
+    if (toggle.checked) {
+        validateSQLTables(sqlQuery);
+    }
+}
+
 // Load templates and schema when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Load templates (required for functionality)

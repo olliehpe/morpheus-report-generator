@@ -525,8 +525,14 @@
             </div>
             
             <div class="form-group">
-                <label for="sqlQuery">SQL Query:</label>
-                <textarea id="sqlQuery" name="sqlQuery" placeholder="SELECT field1, field2, field3 FROM table_name WHERE conditions..." required oninput="updateFieldSelection()" onkeyup="checkForWildcard(event)" onblur="validateSQLTables(this.value)"></textarea>
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <label for="sqlQuery" style="margin-bottom: 0; margin-right: 15px;">SQL Query:</label>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="schemaValidation" checked onchange="handleSchemaValidationToggle()">
+                        <label for="schemaValidation" style="margin-left: 5px; margin-bottom: 0; font-weight: normal; color: #666;">Validate referenced tables against Morpheus database schema</label>
+                    </div>
+                </div>
+                <textarea id="sqlQuery" name="sqlQuery" placeholder="SELECT field1, field2, field3 FROM table_name WHERE conditions..." required oninput="updateFieldSelection()" onkeyup="checkForWildcard(event)" onblur="handleSQLQueryBlur(this.value)"></textarea>
             </div>
 
             <div class="form-group">
