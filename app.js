@@ -973,15 +973,23 @@ function escapeHtml(text) {
 }
 
 // Toast notification functions
-function showToast(message) {
+function showToast(message, type = 'error') {
     const toast = document.getElementById('toast');
     toast.textContent = message;
+
+    // Set styling based on type
+    if (type === 'success') {
+        toast.style.backgroundColor = '#28a745';
+    } else {
+        toast.style.backgroundColor = '#dc3545';
+    }
+
     toast.classList.add('show');
-    
-    // Auto-hide after 5 seconds
+
+    // Auto-hide after 4 seconds
     setTimeout(() => {
         hideToast();
-    }, 5000);
+    }, 4000);
 }
 
 // Check for wildcard character on keyup
@@ -1419,6 +1427,7 @@ function openLoadModal() {
                         <div>Saved: ${config.savedAtFormatted}</div>
                         <div>Fields: ${config.reportFields ? config.reportFields.length : 0} configured</div>
                     </div>
+                    <button class="btn-delete" onclick="event.stopPropagation(); deleteConfiguration('${config.key}', '${encodeURIComponent(config.reportName)}')">Delete</button>
                 </div>
             `;
         });
@@ -1431,10 +1440,33 @@ function openLoadModal() {
 // Close the load configuration modal
 function closeLoadModal(event) {
     const modal = document.getElementById('loadModal');
-    
+
     // Only close if clicking the overlay or close button
     if (!event || event.target === modal || event.target.classList.contains('close-button')) {
         modal.style.display = 'none';
+    }
+}
+
+// Delete a saved configuration
+function deleteConfiguration(configKey, reportName) {
+    const decodedName = decodeURIComponent(reportName);
+    if (confirm(`Are you sure you want to delete the configuration "${decodedName}"?\n\nThis action cannot be undone.`)) {
+        localStorage.removeItem(configKey);
+
+        // Show success message first, before refreshing the modal
+        const toast = document.getElementById('toast');
+        toast.textContent = `Configuration "${decodedName}" deleted successfully.`;
+        toast.style.backgroundColor = '#28a745';
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 4000);
+
+        // Refresh the modal list
+        openLoadModal();
+
+        // Update load button visibility
+        checkForSavedConfigurations();
     }
 }
 
@@ -1532,26 +1564,6 @@ function renderFieldsFromSavedState(savedFields, currentSelections) {
     
     html += '</div>';
     fieldsContainer.innerHTML = html;
-}
-
-// Enhanced toast function with success styling
-function showToast(message, type = 'error') {
-    const toast = document.getElementById('toast');
-    toast.textContent = message;
-    
-    // Set styling based on type
-    if (type === 'success') {
-        toast.style.backgroundColor = '#28a745';
-    } else {
-        toast.style.backgroundColor = '#dc3545';
-    }
-    
-    toast.classList.add('show');
-    
-    // Auto-hide after 4 seconds
-    setTimeout(() => {
-        hideToast();
-    }, 4000);
 }
 
 // Handle schema validation toggle change
