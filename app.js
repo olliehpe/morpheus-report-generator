@@ -13,7 +13,7 @@ const templateFiles = [
     'src/assets/images/morpheus.svg',
     'plugin/',
     'LICENSE',
-    'REAMDME.md'
+    'README.md'
 ];
 
 // Cache for loaded template content
@@ -506,12 +506,7 @@ function processTemplates(formData) {
         if (processedFilename.includes('src/main/groovy/')) {
             processedFilename = processedFilename.replace('src/main/groovy/', `src/main/groovy/${namespacePath}/`);
         }
-        
-        // Rename REAMDME.md to README.md in the processed filename
-        if (processedFilename === 'REAMDME.md') {
-            processedFilename = 'README.md';
-        }
-        
+
         processed[processedFilename] = processedContent;
     }
     
