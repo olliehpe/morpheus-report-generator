@@ -1140,10 +1140,10 @@ function insertColumnReference(columnRef) {
     // Copy to clipboard
     navigator.clipboard.writeText(columnRef).then(() => {
         // Show brief feedback
-        showToast(`Copied "${columnRef}" to clipboard`);
+        showToast(`Copied "${columnRef}" to clipboard`, "success");
     }).catch(() => {
         // Fallback for older browsers
-        showToast(`Column reference: ${columnRef}`);
+        showToast(`Column reference: ${columnRef}`, "success");
     });
 }
 
@@ -1196,7 +1196,7 @@ function setupTextareaDragAndDrop() {
             updateFieldSelection();
             
             // Show feedback
-            showToast(`Added "${columnRef}" to SQL query`);
+            showToast(`Added "${columnRef}" to SQL query`, "success");
         }
     });
 }
